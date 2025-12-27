@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { FiLock, FiUser } from "react-icons/fi"; // (Opcional) Ícones para ficar bonito, se tiveres instalado
 
 function Login() {
   const [username, setUsername] = useState(""); 
@@ -10,7 +11,9 @@ function Login() {
   const handleLogin = async (e) => {
     e.preventDefault();
     setErro("");
-  const API_URL = "https://smartparking-api-diogo.azurewebsites.net/api";
+    // URL da Cloud
+    const API_URL = "https://smartparking-api-diogo.azurewebsites.net/api";
+    
     try {
       const response = await fetch(`${API_URL}/Auth/Login`, {
         method: 'POST',
@@ -20,23 +23,17 @@ function Login() {
 
       if (response.ok) {
         const data = await response.json();
-        
-        // Suporta token com t minúsculo ou maiúsculo
         const tokenRecebido = data.token || data.Token;
-        // Suporta role com r minúsculo ou maiúsculo
         const roleRecebida = data.role || data.Role || "User"; 
 
         if (tokenRecebido) {
             localStorage.setItem("meuToken", tokenRecebido);
-            
-            // --- GUARDA A ROLE AQUI ---
             localStorage.setItem("userRole", roleRecebida); 
-            
             navigate('/dashboard'); 
         } 
 
       } else {
-        setErro("Login falhou! Verifique o Username e a Password.");
+        setErro("Login falhou! Verifique os dados.");
       }
     } catch (error) {
       console.error(error);
@@ -45,55 +42,117 @@ function Login() {
   };
 
   return (
-    <div style={{ padding: '40px', maxWidth: '400px', margin: 'auto', textAlign: 'center', fontFamily: 'Arial' }}>
-      <h1>🔐 Entrar</h1>
-      <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+    <div style={containerStyle}>
+      <div style={cardStyle}>
         
-        <input 
-          type="text" 
-          placeholder="Username (ex: admin)" 
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-          required 
-          style={{ padding: '12px', borderRadius: '5px', border: '1px solid #ccc' }}
-        />
+        <h1 style={{ fontSize: '2.5rem', marginBottom: '30px', fontWeight: 'bold' }}>🔐 Entrar</h1>
         
-        <input 
-          type="password" 
-          placeholder="Password" 
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required 
-          style={{ padding: '12px', borderRadius: '5px', border: '1px solid #ccc' }}
-        />
+        <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          
+          <input 
+            type="text" 
+            placeholder="Username" 
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            required 
+            style={inputStyle}
+          />
+          
+          <input 
+            type="password" 
+            placeholder="Password" 
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required 
+            style={inputStyle}
+          />
+          
+          <button type="submit" style={buttonStyle}>
+            ENTRAR
+          </button>
+        </form>
         
-        <button type="submit" style={{ 
-          padding: '12px', 
-          background: '#007bff', 
-          color: 'white', 
-          border: 'none', 
-          borderRadius: '5px',
-          cursor: 'pointer',
-          fontWeight: 'bold'
-        }}>
-          ENTRAR
-        </button>
-      </form>
-      
-      {erro && <p style={{ color: 'red', marginTop: '10px' }}>⚠️ {erro}</p>}
+        {erro && <div style={errorStyle}>⚠️ {erro}</div>}
 
-      {/* 🆕 NOVO: Link para o Registo */}
-      <p style={{ marginTop: '20px', fontSize: '0.9em' }}>
-        Ainda não tem conta? <br/>
-        <span 
-          onClick={() => navigate('/register')} 
-          style={{ color: '#007bff', cursor: 'pointer', textDecoration: 'underline', fontWeight: 'bold' }}>
-          Criar conta nova
-        </span>
-      </p>
+        <p style={{ marginTop: '30px', fontSize: '1rem', color: '#a1a1aa' }}>
+          Ainda não tem conta? <br/>
+          <span 
+            onClick={() => navigate('/register')} 
+            style={linkStyle}>
+            Criar conta nova
+          </span>
+        </p>
 
+      </div>
     </div>
   );
 }
+
+// --- ESTILOS MODERNOS (CSS-in-JS) ---
+const containerStyle = {
+  display: 'flex',
+  justifyContent: 'center',
+  alignItems: 'center',
+  height: '100vh',
+  width: '100vw',
+  backgroundColor: '#000000',
+  color: 'white',
+  fontFamily: 'Inter, system-ui, Avenir, Helvetica, Arial, sans-serif'
+};
+
+const cardStyle = {
+  backgroundColor: '#0a0a0a',
+  padding: '60px 40px',
+  borderRadius: '24px',
+  border: '1px solid #27272a',
+  width: '100%',
+  maxWidth: '450px', // Mais largo
+  textAlign: 'center',
+  boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
+};
+
+const inputStyle = {
+  width: '100%',
+  padding: '16px 20px',
+  backgroundColor: '#18181b',
+  border: '1px solid #27272a',
+  borderRadius: '12px',
+  color: 'white',
+  fontSize: '1.1rem', // Letra maior
+  outline: 'none',
+  boxSizing: 'border-box'
+};
+
+const buttonStyle = {
+  width: '100%',
+  padding: '16px',
+  backgroundColor: '#3b82f6', // Azul bonito
+  color: 'white',
+  border: 'none',
+  borderRadius: '12px',
+  fontSize: '1.1rem',
+  fontWeight: '700',
+  cursor: 'pointer',
+  marginTop: '10px',
+  transition: 'background 0.2s'
+};
+
+const errorStyle = {
+  marginTop: '20px',
+  padding: '10px',
+  backgroundColor: 'rgba(239, 68, 68, 0.1)',
+  color: '#ef4444',
+  borderRadius: '8px',
+  fontSize: '0.95rem'
+};
+
+const linkStyle = {
+  color: '#60a5fa',
+  cursor: 'pointer',
+  fontWeight: '600',
+  textDecoration: 'none',
+  marginTop: '5px',
+  display: 'inline-block'
+};
 
 export default Login;
