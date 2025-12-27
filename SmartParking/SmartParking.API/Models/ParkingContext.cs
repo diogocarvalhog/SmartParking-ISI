@@ -21,9 +21,15 @@ public partial class ParkingContext : DbContext
 
     public virtual DbSet<Sensor> Sensores { get; set; }
 
+    // Tabela de Utilizadores
+    public virtual DbSet<User> Users { get; set; }
+
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-    #warning To protect potentially sensitive information in your connection string, you should move it out of source code. You can avoid scaffolding the connection string by using the Name= syntax to read it from configuration - see https://go.microsoft.com/fwlink/?linkid=2131148. For more guidance on storing connection strings, see https://go.microsoft.com/fwlink/?LinkId=723263.
-        => optionsBuilder.UseSqlServer("Server=rv-smartparking-diogo.database.windows.net;Database=srv-smartparking-Diogo;User Id=parkingadmin;Password=ProjetoISI2025!;TrustServerCertificate=True;");
+    {
+        // Deixamos vazio intencionalmente.
+        // A configuração agora é feita EXCLUSIVAMENTE no Program.cs.
+        // Isto evita o erro "ConnectionString property has not been initialized".
+    }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

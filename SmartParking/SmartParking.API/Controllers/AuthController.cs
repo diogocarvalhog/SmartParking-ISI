@@ -1,8 +1,10 @@
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+using SmartParking.API.Models;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.IdentityModel.Tokens;
 
 namespace SmartParking.API.Controllers
 {
@@ -10,38 +12,64 @@ namespace SmartParking.API.Controllers
     [ApiController]
     public class AuthController : ControllerBase
     {
-        // POST: api/Auth/Login
-        //Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjEiLCJyb2xlIjoiQWRtaW4iLCJuYmYiOjE3NjY1OTg5MjgsImV4cCI6MTc2NjYwNjEyOCwiaWF0IjoxNzY2NTk4OTI4fQ.Ktb8MGLl3lELHcdzFMg5rT-X0lhBE9AvwOSTS89q31E
-        [HttpPost("Login")]
-        public IActionResult Login([FromBody] LoginRequest request)
+        private readonly ParkingContext _context;
+
+        public AuthController(ParkingContext context)
         {
-            // 1. Simulação de validação (No mundo real, irias verificar na BD de Utilizadores)
-            if (request.Username == "admin" && request.Password == "admin123")
+            _context = context;
+        }
+
+        // REGISTAR: Cria sempre como "User"
+        [HttpPost("Register")]
+        public async Task<IActionResult> Register([FromBody] LoginRequest request)
+        {
+            if (await _context.Users.AnyAsync(u => u.Username == request.Username))
+                return BadRequest("Utilizador já existe!");
+
+            var novoUser = new User
             {
-                // 2. Criar o Token (O Crachá)
-                var tokenHandler = new JwtSecurityTokenHandler();
-                var key = Encoding.ASCII.GetBytes("CHAVE_SUPER_SECRETA_DO_DIOGO_PARKING_2025"); // Tem de ser igual à do Program.cs!
-                
-                var tokenDescriptor = new SecurityTokenDescriptor
-                {
-                    Subject = new ClaimsIdentity(new[] { new Claim("id", "1"), new Claim("role", "Admin") }),
-                    Expires = DateTime.UtcNow.AddHours(2), // O cartão expira em 2 horas
-                    SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
-                };
-                
-                var token = tokenHandler.CreateToken(tokenDescriptor);
-                var tokenString = tokenHandler.WriteToken(token);
+                Username = request.Username,
+                Password = request.Password,
+                Role = "User" // <--- Padrão seguro. Ninguém vira Admin aqui.
+            };
 
-                return Ok(new { Token = tokenString });
-            }
+            _context.Users.Add(novoUser);
+            await _context.SaveChangesAsync();
 
-            return Unauthorized("Username ou Password errados!");
+            return Ok(new { Message = "Conta criada com sucesso!" });
+        }
+
+        // LOGIN: Devolve o Token e a Role
+        [HttpPost("Login")]
+        public async Task<IActionResult> Login([FromBody] LoginRequest request)
+        {
+            var user = await _context.Users
+                .FirstOrDefaultAsync(u => u.Username == request.Username && u.Password == request.Password);
+
+            if (user == null) return Unauthorized("Dados incorretos.");
+
+            var tokenHandler = new JwtSecurityTokenHandler();
+            var key = Encoding.ASCII.GetBytes(SmartParking.API.Settings.Secret);
+
+            var tokenDescriptor = new SecurityTokenDescriptor
+            {
+                Subject = new ClaimsIdentity(new[] { 
+                    new Claim("id", user.Id.ToString()),
+                    new Claim(ClaimTypes.Role, user.Role) 
+                }),
+                Expires = DateTime.UtcNow.AddHours(2),
+                SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
+            };
+
+            var token = tokenHandler.CreateToken(tokenDescriptor);
+            var tokenString = tokenHandler.WriteToken(token);
+
+            // Devolvemos a Role para o React saber se mostra o botão Admin
+            return Ok(new { Token = tokenString, Role = user.Role });
         }
     }
 
-    // Classe simples para receber os dados
-    public class LoginRequest
-    {
+    public class LoginRequest {
         public string Username { get; set; }
         public string Password { get; set; }
     }

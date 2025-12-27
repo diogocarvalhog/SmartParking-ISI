@@ -24,23 +24,15 @@ namespace SmartParking.API.Controllers
             return await _context.Sensores.ToListAsync();
         }
 
-        // POST: api/Sensores (Instalar novo sensor num lugar)
+        // POST: api/Sensores
         [HttpPost]
         public async Task<ActionResult<Sensor>> PostSensor(Sensor sensor)
         {
-            // Validação: O lugar existe?
             var lugar = await _context.Lugares.FindAsync(sensor.LugarId);
-            if (lugar == null)
-            {
-                return BadRequest("O LugarID especificado não existe.");
-            }
+            if (lugar == null) return BadRequest("O LugarID especificado não existe.");
 
-            // Validação: O lugar já tem sensor?
             var existe = await _context.Sensores.AnyAsync(s => s.LugarId == sensor.LugarId);
-            if (existe)
-            {
-                return BadRequest("Este lugar já tem um sensor instalado.");
-            }
+            if (existe) return BadRequest("Este lugar já tem um sensor instalado.");
 
             sensor.UltimaAtualizacao = DateTime.UtcNow;
             _context.Sensores.Add(sensor);
@@ -49,14 +41,13 @@ namespace SmartParking.API.Controllers
             return CreatedAtAction("GetSensores", new { id = sensor.Id }, sensor);
         }
 
-        // PUT: api/Sensores/5 (Atualizar valor - Simulação do Hardware)
+        // PUT: api/Sensores/5
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateSensor(int id, Sensor sensorAtualizado)
         {
             var sensor = await _context.Sensores.FindAsync(id);
             if (sensor == null) return NotFound();
 
-            // Atualiza apenas o estado e a data
             sensor.Estado = sensorAtualizado.Estado;
             sensor.UltimaAtualizacao = DateTime.UtcNow;
 
@@ -64,7 +55,27 @@ namespace SmartParking.API.Controllers
             return NoContent();
         }
 
-        // DELETE: api/Sensores/5 (Remover sensor avariado)
+        // --- NOVO: O INTERRUPTOR PARA O REACT ---
+        // POST: api/Sensores/5/toggle
+        [HttpPost("{id}/toggle")]
+        public async Task<IActionResult> ToggleSensor(int id)
+        {
+            var sensor = await _context.Sensores.FindAsync(id);
+            if (sensor == null) return NotFound("Sensor não encontrado.");
+
+            // Inverte o estado (true virou false, false virou true)
+            sensor.Estado = !sensor.Estado;
+            sensor.UltimaAtualizacao = DateTime.UtcNow;
+
+            await _context.SaveChangesAsync();
+
+            return Ok(new { 
+                Message = $"Estado alterado para {(sensor.Estado ? "Ocupado" : "Livre")}", 
+                NovoEstado = sensor.Estado 
+            });
+        }
+
+        // DELETE: api/Sensores/5
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteSensor(int id)
         {
@@ -76,16 +87,11 @@ namespace SmartParking.API.Controllers
             return NoContent();
         }
 
-        // --- FUNCIONALIDADE EXTRA (O que pediste) ---
-        
         // GET: api/Sensores/Avariados
-        // Lista sensores que não dão sinal há mais de 24 horas
         [HttpGet("Avariados")]
         public async Task<ActionResult<IEnumerable<Sensor>>> GetSensoresAvariados()
         {
-            // Define o limite (ex: ontem à mesma hora)
             var limite = DateTime.UtcNow.AddHours(-24);
-
             return await _context.Sensores
                 .Where(s => s.UltimaAtualizacao < limite)
                 .ToListAsync();

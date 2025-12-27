@@ -1,47 +1,64 @@
 using System.Text.Json;
-using SmartParking.API.Models;
 
 namespace SmartParking.API.Services
 {
     public class WeatherService
     {
         private readonly HttpClient _httpClient;
-        // Já pus a tua chave aqui:
-        private readonly string _apiKey = "1c61f7257faf7285ff220f8abdfae717"; 
+        // A tua chave real:
+        private const string API_KEY = "1c61f7257faf7285ff220f8abdfae717"; 
 
         public WeatherService(HttpClient httpClient)
         {
             _httpClient = httpClient;
         }
 
-        public async Task<string> GetTempoInfo(string cidade)
+        public async Task<WeatherDto?> GetWeatherAsync(decimal lat, decimal lon)
         {
-            // Se a cidade vier vazia, usamos Barcelos por defeito
-            if (string.IsNullOrWhiteSpace(cidade)) cidade = "Barcelos";
+            // URL da OpenWeatherMap (units=metric para Celsius, lang=pt para Português)
+            var url = $"https://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&appid={API_KEY}&units=metric&lang=pt";
 
-            try
+            try 
             {
-                string url = $"https://api.openweathermap.org/data/2.5/weather?q={cidade}&appid={_apiKey}&units=metric&lang=pt";
-                
                 var response = await _httpClient.GetAsync(url);
-                
-                if (!response.IsSuccessStatusCode) 
-                {
-                    // Isto vai mostrar o erro real no Swagger (ex: "401 Unauthorized")
-                    return $"Erro Externo: {response.StatusCode}"; 
-                }
+                if (!response.IsSuccessStatusCode) return null;
 
                 var json = await response.Content.ReadAsStringAsync();
-                var dados = JsonSerializer.Deserialize<WeatherResponse>(json);
+                
+                // Deserializar o JSON complexo da API para o nosso objeto simples
+                var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                var weatherData = JsonSerializer.Deserialize<OpenWeatherResponse>(json, options);
 
-                if (dados == null) return "Erro leitura";
-
-                return $"{dados.Main.Temp:F1}ºC, {dados.Weather[0].Description}";
+                return new WeatherDto
+                {
+                    Temp = weatherData?.Main?.Temp ?? 0,
+                    Description = weatherData?.Weather?.FirstOrDefault()?.Description ?? "Desconhecido",
+                    Icon = weatherData?.Weather?.FirstOrDefault()?.Icon ?? "01d",
+                    City = weatherData?.Name
+                };
             }
-            catch
+            catch 
             {
-                return "Serviço indisponível";
+                return null; 
             }
         }
     }
+
+    // Classes auxiliares para ler o JSON da OpenWeather
+    public class WeatherDto 
+    {
+        public double Temp { get; set; }
+        public string Description { get; set; }
+        public string Icon { get; set; }
+        public string? City { get; set; }
+    }
+
+    public class OpenWeatherResponse
+    {
+        public MainData Main { get; set; }
+        public List<WeatherInfo> Weather { get; set; }
+        public string Name { get; set; }
+    }
+    public class MainData { public double Temp { get; set; } }
+    public class WeatherInfo { public string Description { get; set; } public string Icon { get; set; } }
 }
