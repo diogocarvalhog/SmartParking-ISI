@@ -97,13 +97,15 @@ builder.Services.AddSwaggerGen(c =>
 // Configuração CORS permissiva para evitar bloqueios na Cloud
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAll",
-        policy =>
-        {
-            policy.AllowAnyOrigin()
-                  .AllowAnyMethod()
-                  .AllowAnyHeader();
-        });
+    options.AddPolicy("AllowAll", policy =>
+    {
+        policy.WithOrigins(
+                "http://localhost:5173", 
+                "smart-parking-5fxvk6gtf-diogocarvalhogs-projects.vercel.app" // COLA AQUI O LINK DA VERCEL
+            )
+            .AllowAnyMethod()
+            .AllowAnyHeader();
+    });
 });
 
 #endregion

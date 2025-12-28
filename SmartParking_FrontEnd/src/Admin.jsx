@@ -8,7 +8,7 @@ function Admin() {
   const [novoLugar, setNovoLugar] = useState({ numeroLugar: "", piso: 0, parqueId: "" });
   
   const navigate = useNavigate();
-  // URL da API REST (Ajuste para Cloud se necessário)
+  // URL da API REST na Cloud
   const API_URL = "https://smartparking-api-diogo.azurewebsites.net/api";
 
   useEffect(() => {
@@ -25,17 +25,22 @@ function Admin() {
     } catch(e) { console.error(e); }
   };
 
+  // --- FUNÇÃO CORRIGIDA ABAIXO ---
   const buscarCoordenadas = async () => {
     if (!novoParque.localizacao) { alert("Indique a cidade."); return; }
     const apiKey = "1c61f7257faf7285ff220f8abdfae717"; 
     
     try {
-      const res = await fetch(`http://api.openweathermap.org/geo/1.0/direct?q=${novoParque.localizacao}&limit=1&appid=${apiKey}`);
+      // Alterado para HTTPS para funcionar na Vercel sem erros de Mixed Content
+      const res = await fetch(`https://api.openweathermap.org/geo/1.0/direct?q=${novoParque.localizacao}&limit=1&appid=${apiKey}`);
       const dados = await res.json();
       if (dados.length > 0) {
         setNovoParque(prev => ({ ...prev, latitude: dados[0].lat, longitude: dados[0].lon }));
       } else { alert("Cidade não encontrada."); }
-    } catch (e) { alert("Erro de conexão."); }
+    } catch (e) { 
+      console.error(e);
+      alert("Erro de conexão ao buscar coordenadas."); 
+    }
   };
 
   const handleCriarParque = async (e) => {
@@ -76,7 +81,6 @@ function Admin() {
   return (
     <div style={{ display: 'flex', width: '100vw', height: '100vh', background: '#000000', color: 'white', overflow: 'hidden' }}>
       
-      {/* SIDEBAR */}
       <aside style={{ 
           width: '340px', 
           height: '100vh', 
@@ -88,13 +92,11 @@ function Admin() {
           boxSizing: 'border-box'
       }}>
         
-        {/* Logo */}
         <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '40px' }}>
           <div style={{ width: '45px', height: '45px', background: '#fff', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'black', fontWeight: 'bold', fontSize: '1.4rem' }}>S</div>
           <span style={{ fontSize: '1.6rem', fontWeight: '800', letterSpacing: '-1px', color: 'white' }}>SmartParking</span>
         </div>
 
-        {/* Menu */}
         <nav style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '15px', paddingRight: '10px' }}>
           <div style={menuItem} onClick={() => navigate('/dashboard')}>
             <FiHome size={24} /> <span>Início</span>
@@ -104,7 +106,6 @@ function Admin() {
           </div>
         </nav>
 
-        {/* Footer */}
         <div style={{ flexShrink: 0, marginTop: '30px', borderTop: '1px solid #27272a', paddingTop: '20px' }}>
             <button onClick={handleLogout} style={menuItemDanger}>
                 <FiLogOut size={22} /> <span>Terminar Sessão</span>
@@ -112,19 +113,15 @@ function Admin() {
         </div>
       </aside>
 
-      {/* MAIN CONTENT */}
       <main style={{ flex: 1, height: '100vh', overflowY: 'auto', padding: '50px', backgroundColor: '#000000', boxSizing: 'border-box' }}>
         
-        {/* Header (Limpo, sem botão SOAP) */}
         <div style={{ marginBottom: '50px' }}>
             <h1 style={{ fontSize: '2.5rem', fontWeight: '800', marginBottom: '10px', color: 'white' }}>Administração</h1>
             <p style={{ color: '#a1a1aa', fontSize: '1.1rem' }}>Gestão de parques e lugares</p>
         </div>
 
-        {/* Grid de Formulários */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(450px, 1fr))', gap: '30px', marginBottom: '60px' }}>
           
-          {/* Card: Novo Parque */}
           <div style={cardStyle}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '30px' }}>
               <div style={{ width: '45px', height: '45px', borderRadius: '50%', background: 'rgba(59, 130, 246, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#3b82f6' }}>
@@ -208,7 +205,6 @@ function Admin() {
             </form>
           </div>
 
-          {/* Card: Adicionar Lugar */}
           <div style={cardStyle}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '30px' }}>
               <div style={{ width: '45px', height: '45px', borderRadius: '50%', background: 'rgba(34, 197, 94, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#22c55e' }}>
@@ -259,7 +255,6 @@ function Admin() {
           </div>
         </div>
 
-        {/* Lista de Parques Existentes */}
         {parques.length > 0 && (
           <div>
             <h3 style={{ fontSize: '1.5rem', fontWeight: '700', marginBottom: '25px' }}>Parques Existentes</h3>
@@ -291,11 +286,6 @@ function Admin() {
                     <span>Lat: {parque.latitude.toFixed(4)}</span>
                     <span>Lon: {parque.longitude.toFixed(4)}</span>
                   </div>
-                  {parque.isExterior && (
-                    <div style={{ marginTop: '15px', padding: '8px 12px', background: 'rgba(34, 197, 94, 0.1)', borderRadius: '8px', display: 'inline-block' }}>
-                      <span style={{ color: '#22c55e', fontSize: '0.85rem', fontWeight: '600' }}>🌤️ Exterior</span>
-                    </div>
-                  )}
                 </div>
               ))}
             </div>
@@ -306,93 +296,13 @@ function Admin() {
   );
 }
 
-// Estilos
-const menuItem = { 
-  display: 'flex', 
-  alignItems: 'center', 
-  gap: '15px', 
-  padding: '15px 20px', 
-  color: '#a1a1aa', 
-  borderRadius: '12px', 
-  cursor: 'pointer', 
-  transition: '0.2s', 
-  fontSize: '1.1rem', 
-  fontWeight: '600',
-  border: 'none',
-  background: 'transparent',
-  width: '100%',
-  justifyContent: 'flex-start'
-};
-
-const menuItemActive = { 
-  ...menuItem, 
-  background: '#18181b', 
-  color: 'white' 
-};
-
-const menuItemDanger = { 
-  ...menuItem, 
-  marginTop: '10px', 
-  color: '#ef4444', 
-  background: 'transparent', 
-  width: '100%', 
-  justifyContent: 'flex-start', 
-  paddingLeft: '0' 
-};
-
-const cardStyle = { 
-  backgroundColor: '#0a0a0a', 
-  borderRadius: '24px', 
-  padding: '40px', 
-  border: '1px solid #27272a' 
-};
-
-const labelStyle = { 
-  display: 'block', 
-  fontSize: '0.95rem', 
-  color: '#a1a1aa', 
-  marginBottom: '8px', 
-  fontWeight: '500' 
-};
-
-const inputStyle = { 
-  width: '100%', 
-  padding: '15px 18px', 
-  background: '#18181b', 
-  color: 'white', 
-  border: '1px solid #27272a', 
-  borderRadius: '12px', 
-  fontSize: '1rem',
-  transition: '0.2s'
-};
-
-const searchButtonStyle = {
-  padding: '15px 20px',
-  background: '#3b82f6',
-  color: 'white',
-  border: 'none',
-  borderRadius: '12px',
-  cursor: 'pointer',
-  fontSize: '1.2rem',
-  transition: '0.2s'
-};
-
-const primaryButtonStyle = { 
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  gap: '10px',
-  background: '#3b82f6', 
-  color: 'white', 
-  border: 'none', 
-  padding: '16px 24px', 
-  fontWeight: '700', 
-  cursor: 'pointer', 
-  marginTop: '10px',
-  borderRadius: '12px',
-  fontSize: '1rem',
-  transition: '0.2s',
-  width: '100%'
-};
+const menuItem = { display: 'flex', alignItems: 'center', gap: '15px', padding: '15px 20px', color: '#a1a1aa', borderRadius: '12px', cursor: 'pointer', transition: '0.2s', fontSize: '1.1rem', fontWeight: '600', border: 'none', background: 'transparent', width: '100%', justifyContent: 'flex-start' };
+const menuItemActive = { ...menuItem, background: '#18181b', color: 'white' };
+const menuItemDanger = { ...menuItem, marginTop: '10px', color: '#ef4444', background: 'transparent', width: '100%', justifyContent: 'flex-start', paddingLeft: '0' };
+const cardStyle = { backgroundColor: '#0a0a0a', borderRadius: '24px', padding: '40px', border: '1px solid #27272a' };
+const labelStyle = { display: 'block', fontSize: '0.95rem', color: '#a1a1aa', marginBottom: '8px', fontWeight: '500' };
+const inputStyle = { width: '100%', padding: '15px 18px', background: '#18181b', color: 'white', border: '1px solid #27272a', borderRadius: '12px', fontSize: '1rem', transition: '0.2s' };
+const searchButtonStyle = { padding: '15px 20px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '12px', cursor: 'pointer', fontSize: '1.2rem', transition: '0.2s' };
+const primaryButtonStyle = { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', background: '#3b82f6', color: 'white', border: 'none', padding: '16px 24px', fontWeight: '700', cursor: 'pointer', marginTop: '10px', borderRadius: '12px', fontSize: '1rem', transition: '0.2s', width: '100%' };
 
 export default Admin;
