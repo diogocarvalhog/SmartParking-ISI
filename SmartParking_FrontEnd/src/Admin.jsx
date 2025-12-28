@@ -190,7 +190,7 @@ function Admin() {
               {/* NOVO CAMPO: TIPO DE PARQUE */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: '#18181b', padding: '12px', borderRadius: '12px', border: '1px solid #27272a' }}>
                   <input type="checkbox" checked={novoParque.isExterior} onChange={e => setNovoParque({...novoParque, isExterior: e.target.checked})} style={{ width: '18px', height: '18px' }} />
-                  <label style={{ fontSize: '0.9rem', color: '#fff', cursor: 'pointer' }}>Parque Exterior (Ativa Meteorologia)</label>
+                  <label style={{ fontSize: '0.9rem', color: '#fff', cursor: 'pointer' }}>Parque Exterior</label>
                   <FiSun size={18} color="#eab308" style={{ marginLeft: 'auto' }} />
               </div>
 

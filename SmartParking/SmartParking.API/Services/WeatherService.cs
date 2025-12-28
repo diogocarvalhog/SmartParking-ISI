@@ -1,133 +1,84 @@
-// -----------------------------------------------------------------------------
-// Projeto: SmartParking
-// Unidade Curricular: ISI (IPCA)
-// Autor: Diogo Graça
-// Ficheiro: WeatherService.cs
-// Descrição: Serviço de integração com API externa de meteorologia (OpenWeather).
-// Notas:
-//  - Usa HttpClient (DI) para chamadas HTTP.
-//  - Desserializa resposta JSON para classes locais (OpenWeatherResponse).
-//  - Constrói um DTO simplificado (WeatherDto) consumível pelos controllers.
-// -----------------------------------------------------------------------------
+//-----------------------------------------------------------------
+// <copyright file="WeatherService.cs" company="IPCA">
+// Copyright IPCA-EST. All rights reserved.
+// </copyright>
+// <date>28-12-2025</date>
+// <version>1.1</version>
+// <author>Diogo Graça</author>
+// <description>Serviço de integração com API OpenWeather (REST)</description>
+//-----------------------------------------------------------------
 
 using System.Text.Json;
+using System.Globalization; // Necessário para formatar números com ponto
 
 namespace SmartParking.API.Services
 {
-    #region Serviço Externo: WeatherService
-
     /// <summary>
-    /// Serviço de integração com API externa de meteorologia.
+    /// Classe responsável pela interoperabilidade com o serviço externo OpenWeather.
     /// </summary>
     public class WeatherService
     {
-        #region Campos privados
-
-        /// <summary>
-        /// Cliente HTTP injetado por DI para chamadas à API externa.
-        /// </summary>
+        #region Atributos e Constantes
         private readonly HttpClient _httpClient;
-
-        /// <summary>
-        /// Chave de API usada na autenticação com o fornecedor externo.
-        /// </summary>
         private const string API_KEY = "1c61f7257faf7285ff220f8abdfae717"; 
-
         #endregion
 
         #region Construtor
-
-        /// <summary>
-        /// Construtor com injeção do HttpClient.
-        /// </summary>
-        /// <param name="httpClient">HttpClient fornecido pelo DI.</param>
         public WeatherService(HttpClient httpClient)
         {
             _httpClient = httpClient;
         }
-
         #endregion
 
-        #region Métodos públicos
-
+        #region Métodos de Integração
         /// <summary>
-        /// Obtém informação meteorológica para as coordenadas fornecidas.
+        /// Obtém a meteorologia atual via API REST externa.
         /// </summary>
-        /// <param name="lat">Latitude.</param>
-        /// <param name="lon">Longitude.</param>
-        /// <returns>WeatherDto com dados simplificados, ou null em caso de falha.</returns>
         public async Task<WeatherDto?> GetWeatherAsync(decimal lat, decimal lon)
         {
-            // URL da OpenWeatherMap (units=metric para Celsius, lang=pt para Português)
-            var url = $"https://api.openweathermap.org/data/...ather?lat={lat}&lon={lon}&appid={API_KEY}&units=metric&lang=pt";
+            // SOLUÇÃO: Forçar CultureInfo.InvariantCulture garante que lat/lon usam ponto '.' e não vírgula ','
+            string sLat = lat.ToString(CultureInfo.InvariantCulture);
+            string sLon = lon.ToString(CultureInfo.InvariantCulture);
+
+            var url = $"https://api.openweathermap.org/data/2.5/weather?lat={sLat}&lon={sLon}&appid={API_KEY}&units=metric&lang=pt";
 
             try 
             {
                 var response = await _httpClient.GetAsync(url);
+                
+                // Se a API externa falhar, não crashamos o sistema, devolvemos null
                 if (!response.IsSuccessStatusCode) return null;
 
                 var json = await response.Content.ReadAsStringAsync();
                 
-                // Deserializar o JSON complexo da API para o nosso objeto simples
                 var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
                 var weatherData = JsonSerializer.Deserialize<OpenWeatherResponse>(json, options);
 
                 return new WeatherDto
                 {
                     Temp = weatherData?.Main?.Temp ?? 0,
-                    Description = weatherData?.Weather?.FirstOrDefault()?.Description ?? "Desconhecido",
+                    Description = weatherData?.Weather?.FirstOrDefault()?.Description ?? "Sem dados",
                     Icon = weatherData?.Weather?.FirstOrDefault()?.Icon ?? "01d",
                     City = weatherData?.Name
                 };
             }
-            catch 
+            catch (Exception)
             {
                 return null; 
             }
         }
-
         #endregion
     }
 
-    #endregion
-
-    #region DTO Simplificado: WeatherDto
-
-    /// <summary>
-    /// DTO simplificado consumido pelo sistema (frontend/controllers),
-    /// derivado de uma resposta externa mais complexa.
-    /// </summary>
+    #region Modelos de Dados (DTOs e Respostas)
     public class WeatherDto
     {
-        /// <summary>
-        /// Temperatura (Celsius quando units=metric).
-        /// </summary>
         public double Temp { get; set; }
-
-        /// <summary>
-        /// Descrição textual do estado do tempo.
-        /// </summary>
         public string Description { get; set; }
-
-        /// <summary>
-        /// Ícone/código devolvido pelo fornecedor externo (ex.: "01d").
-        /// </summary>
         public string Icon { get; set; }
-
-        /// <summary>
-        /// Nome da cidade/localidade (quando disponível).
-        /// </summary>
         public string? City { get; set; }
     }
 
-    #endregion
-
-    #region Modelos de Desserialização: OpenWeatherResponse
-
-    /// <summary>
-    /// Estrutura de desserialização da resposta do fornecedor externo.
-    /// Modela apenas os campos usados no projeto.
-    /// </summary>
     public class OpenWeatherResponse
     {
         public MainData Main { get; set; }
@@ -135,15 +86,7 @@ namespace SmartParking.API.Services
         public string Name { get; set; }
     }
 
-    /// <summary>
-    /// Bloco "main" do fornecedor externo.
-    /// </summary>
     public class MainData { public double Temp { get; set; } }
-
-    /// <summary>
-    /// Item do array "weather" (descrição e ícone).
-    /// </summary>
     public class WeatherInfo { public string Description { get; set; } public string Icon { get; set; } }
-
     #endregion
 }
