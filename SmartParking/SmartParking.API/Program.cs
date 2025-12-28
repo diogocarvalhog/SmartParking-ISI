@@ -12,7 +12,6 @@ var builder = WebApplication.CreateBuilder(args);
 
 #region 1. Configuração de Base de Dados e Serviços
 
-// Connection String direta para garantir que funciona na Cloud
 var connectionString = "Server=tcp:rv-smartparking-diogo.database.windows.net,1433;Initial Catalog=srv-smartparking-Diogo;User Id=parkingadmin;Password=ProjetoISI2025!;TrustServerCertificate=True;MultipleActiveResultSets=False;Encrypt=True;Connection Timeout=30;";
 
 builder.Services.AddDbContext<ParkingContext>(options =>
@@ -24,11 +23,8 @@ builder.Services.AddDbContext<ParkingContext>(options =>
             errorNumbersToAdd: null);
     }));
 
-// --- CORREÇÃO IMPORTANTE: Registar o motor do SoapCore ---
 builder.Services.AddSoapCore();
-// ---------------------------------------------------------
 
-// Registar os Serviços da Aplicação
 builder.Services.AddScoped<ISoapService, SoapService>();
 builder.Services.AddHttpClient<WeatherService>();
 
@@ -63,7 +59,6 @@ builder.Services.AddAuthentication(options =>
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
-        // Ignora ciclos para JSON (REST), mas NÃO afeta o XML (SOAP)
         options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
     });
 
@@ -94,17 +89,19 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
-// Configuração CORS permissiva para evitar bloqueios na Cloud
+// --- CORREÇÃO DO CORS ---
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
     {
         policy.WithOrigins(
                 "http://localhost:5173", 
-                "smart-parking-5fxvk6gtf-diogocarvalhogs-projects.vercel.app" // COLA AQUI O LINK DA VERCEL
+                "https://smart-parking-isi.vercel.app", // Domínio principal da Vercel
+                "https://smart-parking-5fxvk6gtf-diogocarvalhogs-projects.vercel.app" // Domínio de preview corrigido com https://
             )
             .AllowAnyMethod()
-            .AllowAnyHeader();
+            .AllowAnyHeader()
+            .AllowCredentials(); // Importante para alguns navegadores manterem a sessão
     });
 });
 
@@ -112,12 +109,11 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
-// Aplicar CORS antes de tudo
+// O CORS deve ser aplicado ANTES da Autenticação e do Redirection
 app.UseCors("AllowAll");
 
 #region 4. Pipeline HTTP
 
-// Swagger sempre visível (mesmo em Produção/Azure)
 app.UseSwagger();
 app.UseSwaggerUI();
 
@@ -129,10 +125,6 @@ app.UseAuthorization();
 app.MapControllers();
 
 // Endpoint SOAP
-// Importante: Usa XmlSerializer, que é sensível a ciclos infinitos.
-// Certifique-se que o seu SoapService.cs corta as relações (lugar.Parque = null).
-// Endpoint SOAP
-// O cast ((IApplicationBuilder)app) resolve a ambiguidade do compilador
 ((IApplicationBuilder)app).UseSoapEndpoint<ISoapService>(
     "/Service.asmx",
     new SoapEncoderOptions(),

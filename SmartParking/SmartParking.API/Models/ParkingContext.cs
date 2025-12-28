@@ -16,19 +16,13 @@ public partial class ParkingContext : DbContext
     }
 
     public virtual DbSet<Lugar> Lugares { get; set; }
-
     public virtual DbSet<Parque> Parques { get; set; }
-
     public virtual DbSet<Sensor> Sensores { get; set; }
-
-    // Tabela de Utilizadores
     public virtual DbSet<User> Users { get; set; }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
-        // Deixamos vazio intencionalmente.
-        // A configuração agora é feita EXCLUSIVAMENTE no Program.cs.
-        // Isto evita o erro "ConnectionString property has not been initialized".
+        // Configuração feita no Program.cs para evitar erros de ConnectionString
     }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -36,19 +30,18 @@ public partial class ParkingContext : DbContext
         modelBuilder.Entity<Lugar>(entity =>
         {
             entity.HasKey(e => e.Id).HasName("PK__Lugares__3214EC07CFEAEF07");
-
             entity.Property(e => e.NumeroLugar).HasMaxLength(10);
 
+            // ALTERADO: Cascade permite apagar Parque e Lugares em conjunto
             entity.HasOne(d => d.Parque).WithMany(p => p.Lugares)
                 .HasForeignKey(d => d.ParqueId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
+                .OnDelete(DeleteBehavior.Cascade) 
                 .HasConstraintName("FK_Lugares_Parques");
         });
 
         modelBuilder.Entity<Parque>(entity =>
         {
             entity.HasKey(e => e.Id).HasName("PK__Parques__3214EC0786113281");
-
             entity.Property(e => e.Latitude).HasColumnType("decimal(9, 6)");
             entity.Property(e => e.Localizacao).HasMaxLength(100);
             entity.Property(e => e.Longitude).HasColumnType("decimal(9, 6)");
@@ -58,19 +51,14 @@ public partial class ParkingContext : DbContext
         modelBuilder.Entity<Sensor>(entity =>
         {
             entity.HasKey(e => e.Id).HasName("PK__Sensores__3214EC07A6A98226");
-
             entity.HasIndex(e => e.LugarId, "UQ__Sensores__1BDE0DE16490C0D1").IsUnique();
+            entity.Property(e => e.Tipo).HasMaxLength(50).HasDefaultValue("Presenca");
+            entity.Property(e => e.UltimaAtualizacao).HasDefaultValueSql("(getdate())").HasColumnType("datetime");
 
-            entity.Property(e => e.Tipo)
-                .HasMaxLength(50)
-                .HasDefaultValue("Presenca");
-            entity.Property(e => e.UltimaAtualizacao)
-                .HasDefaultValueSql("(getdate())")
-                .HasColumnType("datetime");
-
+            // ALTERADO: Cascade permite apagar Lugar e Sensor em conjunto
             entity.HasOne(d => d.Lugar).WithOne(p => p.Sensor)
                 .HasForeignKey<Sensor>(d => d.LugarId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
+                .OnDelete(DeleteBehavior.Cascade) 
                 .HasConstraintName("FK_Sensores_Lugares");
         });
 

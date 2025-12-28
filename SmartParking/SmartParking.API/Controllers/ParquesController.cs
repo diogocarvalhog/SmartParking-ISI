@@ -16,14 +16,14 @@ namespace SmartParking.API.Controllers
             _context = context;
         }
 
-        // GET: api/Parques (Lista todos os parques)
+        // GET: api/Parques
         [HttpGet]
         public async Task<ActionResult<IEnumerable<Parque>>> GetParques()
         {
             return await _context.Parques.ToListAsync();
         }
 
-        // POST: api/Parques (Criar novo parque - Para o Admin)
+        // POST: api/Parques
         [HttpPost]
         public async Task<ActionResult<Parque>> PostParque(Parque parque)
         {
@@ -32,14 +32,13 @@ namespace SmartParking.API.Controllers
             return CreatedAtAction("GetParques", new { id = parque.Id }, parque);
         }
 
-        // GET: api/Parques/5/weather (Saber o tempo neste parque)
+        // GET: api/Parques/5/weather
         [HttpGet("{id}/weather")]
         public async Task<IActionResult> GetParkWeather(int id, [FromServices] WeatherService weatherService)
         {
             var parque = await _context.Parques.FindAsync(id);
             if (parque == null) return NotFound("Parque não encontrado");
 
-            // Se for interior, não precisamos de ir à API
             if (!parque.IsExterior) 
             {
                 return Ok(new WeatherDto { 
@@ -50,12 +49,25 @@ namespace SmartParking.API.Controllers
                 });
             }
 
-            // Busca o tempo real usando a tua API Key
             var weather = await weatherService.GetWeatherAsync(parque.Latitude, parque.Longitude);
-            
             if (weather == null) return BadRequest("Não foi possível obter a meteorologia.");
-            
             return Ok(weather);
+        }
+
+        // --- NOVO MÉTODO: DELETE api/Parques/5 ---
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> DeleteParque(int id)
+        {
+            var parque = await _context.Parques.FindAsync(id);
+            if (parque == null)
+            {
+                return NotFound();
+            }
+
+            _context.Parques.Remove(parque);
+            await _context.SaveChangesAsync();
+
+            return NoContent();
         }
     }
 }
