@@ -1,3 +1,14 @@
+// -----------------------------------------------------------------------------
+// Projeto: SmartParking
+// Unidade Curricular: ISI (IPCA)
+// Autor: Diogo Graça
+// Ficheiro: LugaresController.cs
+// Descrição: Endpoints REST para gestão de Lugares (CRUD + operações de ocupação).
+// Notas:
+//  - Este controller inclui operações de simulação de checkout e libertação.
+//  - Inclui Sensor via Include para suportar monitorização e estado em tempo real.
+// -----------------------------------------------------------------------------
+
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using SmartParking.API.Models;
@@ -5,18 +16,44 @@ using Microsoft.AspNetCore.Authorization;
 
 namespace SmartParking.API.Controllers
 {
+    /// <summary>
+    /// Controller REST para operações sobre lugares de estacionamento.
+    /// Protegido por autenticação (JWT) através do atributo [Authorize].
+    /// </summary>
     [Authorize]
     [Route("api/[controller]")]
     [ApiController]
     public class LugaresController : ControllerBase
     {
+        #region Campos privados
+
+        /// <summary>
+        /// Contexto EF Core para acesso a Lugares/Sensores/Parques.
+        /// </summary>
         private readonly ParkingContext _context;
 
+        #endregion
+
+        #region Construtor
+
+        /// <summary>
+        /// Construtor com injeção do contexto EF.
+        /// </summary>
+        /// <param name="context">ParkingContext (EF Core).</param>
         public LugaresController(ParkingContext context)
         {
             _context = context;
         }
 
+        #endregion
+
+        #region Endpoints REST - CRUD
+
+        /// <summary>
+        /// Obtém a lista de todos os lugares.
+        /// Inclui o Sensor associado (se existir) para suportar o estado em tempo real.
+        /// </summary>
+        /// <returns>Lista de lugares (com Sensor incluído).</returns>
         // GET: api/Lugares
         [HttpGet]
         public async Task<ActionResult<IEnumerable<Lugar>>> GetLugares()
@@ -27,6 +64,12 @@ namespace SmartParking.API.Controllers
                 .ToListAsync();
         }
 
+        /// <summary>
+        /// Obtém um lugar por ID.
+        /// Inclui o Parque associado para contexto (ex.: nome do parque).
+        /// </summary>
+        /// <param name="id">Identificador do lugar.</param>
+        /// <returns>Objeto Lugar ou 404 NotFound.</returns>
         // GET: api/Lugares/5
         [HttpGet("{id}")]
         public async Task<ActionResult<Lugar>> GetLugar(int id)
@@ -41,6 +84,11 @@ namespace SmartParking.API.Controllers
             return lugar;
         }
 
+        /// <summary>
+        /// Obtém todos os lugares de um parque específico.
+        /// </summary>
+        /// <param name="parqueId">ID do parque.</param>
+        /// <returns>Lista de lugares do parque.</returns>
         // GET: api/Lugares/Parque/1 (Bónus: Todos os lugares do Parque X)
         [HttpGet("Parque/{parqueId}")]
         public async Task<ActionResult<IEnumerable<Lugar>>> GetLugaresPorParque(int parqueId)
@@ -50,6 +98,11 @@ namespace SmartParking.API.Controllers
                 .ToListAsync();
         }
 
+        /// <summary>
+        /// Cria um novo lugar.
+        /// </summary>
+        /// <param name="lugar">Dados do lugar a inserir.</param>
+        /// <returns>201 Created com localização do recurso criado.</returns>
         // POST: api/Lugares
         [HttpPost]
         public async Task<ActionResult<Lugar>> PostLugar(Lugar lugar)
@@ -60,14 +113,22 @@ namespace SmartParking.API.Controllers
             return CreatedAtAction("GetLugar", new { id = lugar.Id }, lugar);
         }
 
-        // DELETE: api/Lugares/5
+        /// <summary>
+        /// Remove um lugar por ID.
+        /// Se existir Sensor associado, remove-o primeiro para manter integridade.
+        /// </summary>
+        /// <param name="id">ID do lugar a remover.</param>
+        /// <returns>204 NoContent; 404 NotFound se inexistente.</returns>
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteLugar(int id)
         {
-            var lugar = await _context.Lugares.FindAsync(id);
-            if (lugar == null)
+            var lugar = await _context.Lugares.Include(l => l.Sensor).FirstOrDefaultAsync(l => l.Id == id);
+            if (lugar == null) return NotFound();
+
+            // Se houver um sensor, removemo-lo primeiro manualmente
+            if (lugar.Sensor != null)
             {
-                return NotFound();
+                _context.Sensores.Remove(lugar.Sensor);
             }
 
             _context.Lugares.Remove(lugar);
@@ -75,7 +136,17 @@ namespace SmartParking.API.Controllers
 
             return NoContent();
         }
-        
+
+        #endregion
+
+        #region Endpoints REST - Operações de ocupação/saída
+
+        /// <summary>
+        /// Marca um lugar como ocupado (via Sensor).
+        /// Atualiza a hora da última atualização do Sensor.
+        /// </summary>
+        /// <param name="id">ID do lugar.</param>
+        /// <returns>200 OK; 404 se não existir sensor associado.</returns>
         // POST: api/Lugares/1/Ocupar
         [HttpPost("{id}/Ocupar")]
         public async Task<IActionResult> OcuparLugar(int id)
@@ -95,6 +166,12 @@ namespace SmartParking.API.Controllers
             return Ok(new { message = $"Lugar {id} foi ocupado às {sensor.UltimaAtualizacao}" });
         }
 
+        /// <summary>
+        /// Liberta um lugar e calcula um valor a pagar com base no tempo decorrido.
+        /// Implementa validações de robustez (ex.: já estava livre).
+        /// </summary>
+        /// <param name="id">ID do lugar.</param>
+        /// <returns>200 OK com “fatura” em JSON; 400/404 em erros de regra.</returns>
         // POST: api/Lugares/1/Libertar
         [HttpPost("{id}/Libertar")]
         public async Task<IActionResult> Libertar(int id)
@@ -142,6 +219,15 @@ namespace SmartParking.API.Controllers
                 totalPagar = $"{valorAPagar.ToString("F2")}€" // F2 formata para 2 casas decimais
             });
         }
+
+        #endregion
+
+        #region Endpoints REST - Consultas e simulações
+
+        /// <summary>
+        /// Lista apenas lugares com Sensor associado e estado "Livre".
+        /// </summary>
+        /// <returns>Lista de objetos anónimos (Id, Número, Piso, Parque).</returns>
         // GET: api/Lugares/Livres
         // Mostra apenas lugares que estão desocupados
         [HttpGet("Livres")]
@@ -161,7 +247,13 @@ namespace SmartParking.API.Controllers
 
             return Ok(lugaresLivres);
         }
-        
+
+        /// <summary>
+        /// Simula checkout: calcula tempo e custo estimado sem alterar estados.
+        /// Inclui regra de preço por hora e possibilidade de gratuitidade (ex.: < 15 minutos).
+        /// </summary>
+        /// <param name="id">ID do lugar.</param>
+        /// <returns>Resumo de checkout em JSON; 400/404 em regras/ausência.</returns>
         // GET: api/Lugares/1/Checkout
         // Simula a saída e calcula o preço a pagar
         [HttpGet("{id}/Checkout")]
@@ -201,6 +293,7 @@ namespace SmartParking.API.Controllers
                 TotalAPagar = $"{totalPagar}€"
             });
         }
-        
+
+        #endregion
     }
 }

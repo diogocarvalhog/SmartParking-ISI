@@ -1,17 +1,56 @@
+// -----------------------------------------------------------------------------
+// Projeto: SmartParking
+// Unidade Curricular: ISI (IPCA)
+// Autor: Diogo Graça
+// Ficheiro: SoapService.cs
+// Descrição: Implementação do serviço SOAP definido em ISoapService.
+// Notas:
+//  - Usa AsNoTracking para minimizar efeitos de tracking do EF (importante em serialização).
+//  - Remove ciclos de referência (Parque <-> Lugar <-> Sensor) para evitar falhas na XML SOAP.
+// -----------------------------------------------------------------------------
+
 using Microsoft.EntityFrameworkCore;
 using SmartParking.API.Models;
 
 namespace SmartParking.API.Services
 {
+    #region Serviço SOAP: SoapService
+
+    /// <summary>
+    /// Implementação do contrato SOAP (ISoapService).
+    /// Responsável por devolver dados em estruturas serializáveis via SOAP/XML.
+    /// </summary>
     public class SoapService : ISoapService
     {
+        #region Campos privados
+
+        /// <summary>
+        /// Contexto EF Core para acesso ao repositório (Azure SQL / SQL Server).
+        /// </summary>
         private readonly ParkingContext _context;
 
+        #endregion
+
+        #region Construtor
+
+        /// <summary>
+        /// Construtor com injeção do contexto EF.
+        /// </summary>
+        /// <param name="context">ParkingContext.</param>
         public SoapService(ParkingContext context)
         {
             _context = context;
         }
 
+        #endregion
+
+        #region Operações SOAP
+
+        /// <summary>
+        /// Devolve a lista de parques, incluindo lugares (para exportação em XML).
+        /// Aplica AsNoTracking e “corte de ciclos” (Lugar -> Parque) para serialização SOAP.
+        /// </summary>
+        /// <returns>Lista de parques.</returns>
         public async Task<List<Parque>> GetParquesXml()
         {
             // 1. AsNoTracking é CRÍTICO: impede o Entity Framework de "colar" 
@@ -29,13 +68,7 @@ namespace SmartParking.API.Services
                 {
                     foreach (var lugar in parque.Lugares)
                     {
-                        lugar.Parque = null; // <--- O SEGREDO ESTÁ AQUI
-                        
-                        // Se tiver Sensores e eles apontarem para o Lugar, corte também:
-                        if (lugar.Sensor != null) 
-                        {
-                            // lugar.Sensor.Lugar = null; // (Descomente se tiver erro no sensor)
-                        }
+                        lugar.Parque = null; // <-- CORTA o ciclo Lugar -> Parque
                     }
                 }
             }
@@ -43,23 +76,33 @@ namespace SmartParking.API.Services
             return parques;
         }
 
+        /// <summary>
+        /// Operação simples de teste para confirmar que o serviço SOAP está ativo.
+        /// </summary>
+        /// <returns>Mensagem de resposta (Pong).</returns>
         public string Ping()
         {
-            return "Pong! O serviço SOAP está ativo.";
+            return "Pong! O serviço SOAP está ativo e a funcionar.";
         }
-        
+
+        /// <summary>
+        /// Devolve detalhe de um parque, incluindo Lugares e Sensores.
+        /// Antes de devolver, remove referências circulares:
+        /// - Lugar.Parque = null
+        /// - Sensor.Lugar = null
+        /// para evitar erros de serialização XML.
+        /// </summary>
+        /// <param name="id">ID do parque.</param>
+        /// <returns>Parque detalhado.</returns>
         public async Task<Parque> GetParqueDetalhe(int id)
         {
             var parque = await _context.Parques
                 .AsNoTracking()
                 .Include(p => p.Lugares)
-                .ThenInclude(l => l.Sensor) // Carrega o sensor
+                .ThenInclude(l => l.Sensor)
                 .FirstOrDefaultAsync(p => p.Id == id);
 
-            if (parque == null) return null;
-
-            // LIMPEZA DE CICLOS (Crucial para SOAP)
-            if (parque.Lugares != null)
+            if (parque != null && parque.Lugares != null)
             {
                 foreach (var lugar in parque.Lugares)
                 {
@@ -76,5 +119,9 @@ namespace SmartParking.API.Services
 
             return parque;
         }
+
+        #endregion
     }
+
+    #endregion
 }

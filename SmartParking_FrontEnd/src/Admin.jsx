@@ -1,12 +1,27 @@
+// -----------------------------------------------------------------
+// Projeto: SmartParking - Administração (IPCA)
+// Autor: Diogo Graça
+// Alteração: Adicionados campos de Georreferenciação para Meteorologia
+// -----------------------------------------------------------------
+
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FiHome, FiSettings, FiLogOut, FiPlus, FiMapPin, FiLayers, FiTrash2, FiFilter } from "react-icons/fi";
+import { FiHome, FiSettings, FiLogOut, FiPlus, FiMapPin, FiLayers, FiTrash2, FiFilter, FiSun } from "react-icons/fi";
 
 function Admin() {
   const [parques, setParques] = useState([]);
   const [lugares, setLugares] = useState([]);
-  const [parqueFiltro, setParqueFiltro] = useState(""); // Filtro para gerir lugares
-  const [novoParque, setNovoParque] = useState({ nome: "", localizacao: "", latitude: 0, longitude: 0, isExterior: true });
+  const [parqueFiltro, setParqueFiltro] = useState(""); 
+  
+  // REGION: Estado inicial atualizado com campos ISI
+  const [novoParque, setNovoParque] = useState({ 
+    nome: "", 
+    localizacao: "", 
+    latitude: 0, 
+    longitude: 0, 
+    isExterior: true 
+  });
+
   const [novoLugar, setNovoLugar] = useState({ numeroLugar: "", piso: 0, parqueId: "" });
   
   const navigate = useNavigate();
@@ -35,6 +50,7 @@ function Admin() {
     } catch(e) { console.error(e); }
   };
 
+  // REGION: Lógica Geocoding (OpenWeatherMap API)
   const buscarCoordenadas = async () => {
     if (!novoParque.localizacao) { alert("Indique a cidade."); return; }
     const apiKey = "1c61f7257faf7285ff220f8abdfae717"; 
@@ -42,7 +58,12 @@ function Admin() {
       const res = await fetch(`https://api.openweathermap.org/geo/1.0/direct?q=${novoParque.localizacao}&limit=1&appid=${apiKey}`);
       const dados = await res.json();
       if (dados.length > 0) {
-        setNovoParque(prev => ({ ...prev, latitude: dados[0].lat, longitude: dados[0].lon }));
+        // Atualiza os campos de latitude e longitude automaticamente
+        setNovoParque(prev => ({ 
+          ...prev, 
+          latitude: parseFloat(dados[0].lat.toFixed(4)), 
+          longitude: parseFloat(dados[0].lon.toFixed(4)) 
+        }));
       } else { alert("Cidade não encontrada."); }
     } catch (e) { alert("Erro de conexão ao buscar coordenadas."); }
   };
@@ -55,7 +76,11 @@ function Admin() {
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
       body: JSON.stringify(novoParque)
     });
-    if (res.ok) { fetchParques(); setNovoParque({ nome: "", localizacao: "", latitude: 0, longitude: 0, isExterior: true }); alert("Parque criado."); }
+    if (res.ok) { 
+      fetchParques(); 
+      setNovoParque({ nome: "", localizacao: "", latitude: 0, longitude: 0, isExterior: true }); 
+      alert("Parque criado com sucesso!"); 
+    }
   };
 
   const handleRemoverParque = async (id) => {
@@ -100,7 +125,6 @@ function Admin() {
 
   const handleLogout = () => { localStorage.clear(); navigate("/"); };
 
-  // Filtra os lugares apenas se um parque estiver selecionado
   const lugaresFiltrados = parqueFiltro 
     ? lugares.filter(l => l.parqueId === parseInt(parqueFiltro))
     : [];
@@ -108,7 +132,7 @@ function Admin() {
   return (
     <div style={{ display: 'flex', width: '100vw', height: '100vh', background: '#000000', color: 'white', overflow: 'hidden' }}>
       
-      {/* SIDEBAR */}
+      {/* SIDEBAR OMITIDA POR BREVIDADE (Mantém a tua original) */}
       <aside style={{ width: '340px', height: '100vh', display: 'flex', flexDirection: 'column', borderRight: '1px solid #27272a', backgroundColor: '#000000', padding: '30px', boxSizing: 'border-box' }}>
         <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '40px' }}>
           <div style={{ width: '45px', height: '45px', background: '#fff', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'black', fontWeight: 'bold', fontSize: '1.4rem' }}>S</div>
@@ -123,7 +147,6 @@ function Admin() {
         </div>
       </aside>
 
-      {/* MAIN CONTENT */}
       <main style={{ flex: 1, height: '100vh', overflowY: 'auto', padding: '50px', backgroundColor: '#000000', boxSizing: 'border-box' }}>
         <div style={{ marginBottom: '50px' }}>
             <h1 style={{ fontSize: '2.5rem', fontWeight: '800', marginBottom: '10px' }}>Administração</h1>
@@ -131,17 +154,50 @@ function Admin() {
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(450px, 1fr))', gap: '30px', marginBottom: '60px' }}>
-          {/* Card: Novo Parque (Estilo do código 1) */}
+          
+          {/* CARD: NOVO PARQUE (ATUALIZADO COM CAMPOS ISI) */}
           <div style={cardStyle}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '30px' }}><div style={{ color: '#3b82f6' }}><FiMapPin size={22} /></div><h3 style={{ fontSize: '1.5rem', fontWeight: '700', margin: 0 }}>Novo Parque</h3></div>
-            <form onSubmit={handleCriarParque} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              <div><label style={labelStyle}>Nome do Parque</label><input placeholder="Ex: Smart Park IPCA" value={novoParque.nome} onChange={e => setNovoParque({...novoParque, nome: e.target.value})} required style={inputStyle} /></div>
-              <div><label style={labelStyle}>Localização (Cidade)</label><div style={{ display: 'flex', gap: '10px' }}><input placeholder="Ex: Porto" value={novoParque.localizacao} onChange={e => setNovoParque({...novoParque, localizacao: e.target.value})} required style={{ ...inputStyle, flex: 1 }} /><button type="button" onClick={buscarCoordenadas} style={searchButtonStyle}>🔍</button></div></div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '30px' }}>
+                <div style={{ color: '#3b82f6' }}><FiMapPin size={22} /></div>
+                <h3 style={{ fontSize: '1.5rem', fontWeight: '700', margin: 0 }}>Novo Parque</h3>
+            </div>
+            <form onSubmit={handleCriarParque} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+              <div>
+                <label style={labelStyle}>Nome do Parque</label>
+                <input placeholder="Ex: Smart Park IPCA" value={novoParque.nome} onChange={e => setNovoParque({...novoParque, nome: e.target.value})} required style={inputStyle} />
+              </div>
+              
+              <div>
+                <label style={labelStyle}>Localização (Cidade)</label>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                    <input placeholder="Ex: Póvoa de Varzim" value={novoParque.localizacao} onChange={e => setNovoParque({...novoParque, localizacao: e.target.value})} required style={{ ...inputStyle, flex: 1 }} />
+                    <button type="button" onClick={buscarCoordenadas} style={searchButtonStyle} title="Procurar coordenadas">🔍</button>
+                </div>
+              </div>
+
+              {/* NOVOS CAMPOS: LATITUDE E LONGITUDE */}
+              <div style={{ display: 'flex', gap: '15px' }}>
+                  <div style={{ flex: 1 }}>
+                    <label style={labelStyle}>Latitude</label>
+                    <input type="number" step="any" value={novoParque.latitude} onChange={e => setNovoParque({...novoParque, latitude: parseFloat(e.target.value)})} required style={inputStyle} />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <label style={labelStyle}>Longitude</label>
+                    <input type="number" step="any" value={novoParque.longitude} onChange={e => setNovoParque({...novoParque, longitude: parseFloat(e.target.value)})} required style={inputStyle} />
+                  </div>
+              </div>
+
+              {/* NOVO CAMPO: TIPO DE PARQUE */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: '#18181b', padding: '12px', borderRadius: '12px', border: '1px solid #27272a' }}>
+                  <input type="checkbox" checked={novoParque.isExterior} onChange={e => setNovoParque({...novoParque, isExterior: e.target.checked})} style={{ width: '18px', height: '18px' }} />
+                  <label style={{ fontSize: '0.9rem', color: '#fff', cursor: 'pointer' }}>Parque Exterior (Ativa Meteorologia)</label>
+                  <FiSun size={18} color="#eab308" style={{ marginLeft: 'auto' }} />
+              </div>
+
               <button type="submit" style={primaryButtonStyle}><FiPlus size={20} /> Criar Parque</button>
             </form>
           </div>
 
-          {/* Card: Adicionar Lugar (Estilo do código 1) */}
           <div style={cardStyle}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '30px' }}><div style={{ color: '#22c55e' }}><FiLayers size={22} /></div><h3 style={{ fontSize: '1.5rem', fontWeight: '700', margin: 0 }}>Adicionar Lugar</h3></div>
             <form onSubmit={handleCriarLugar} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -153,18 +209,24 @@ function Admin() {
           </div>
         </div>
 
-        {/* LISTA DE PARQUES */}
+        {/* LISTAGEM E RESTANTE CÓDIGO (Mantém o teu original) */}
         <h3 style={{ fontSize: '1.5rem', fontWeight: '700', marginBottom: '25px' }}>Parques Existentes</h3>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '25px', marginBottom: '60px' }}>
           {parques.map(p => (
             <div key={p.id} style={itemCard}>
-              <div><h4 style={{ margin: 0 }}>{p.nome}</h4><p style={{ color: '#a1a1aa', fontSize: '0.9rem', margin: '5px 0' }}>📍 {p.localizacao}</p></div>
+              <div>
+                <h4 style={{ margin: 0 }}>{p.nome}</h4>
+                <p style={{ color: '#a1a1aa', fontSize: '0.85rem', margin: '5px 0' }}>📍 {p.localizacao} ({p.latitude}, {p.longitude})</p>
+                <span style={{ fontSize: '0.7rem', background: p.isExterior ? '#166534' : '#374151', padding: '2px 8px', borderRadius: '10px' }}>
+                    {p.isExterior ? 'Exterior' : 'Interior'}
+                </span>
+              </div>
               <button onClick={() => handleRemoverParque(p.id)} style={deleteBtn}><FiTrash2 size={18} /></button>
             </div>
           ))}
         </div>
 
-        {/* GESTÃO DE LUGARES FILTRADA */}
+        {/* ... (Manter filtro de lugares igual) */}
         <div style={{ borderTop: '1px solid #27272a', paddingTop: '40px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px' }}>
             <h3 style={{ margin: 0, fontSize: '1.5rem', fontWeight: '700' }}>Gestão de Lugares</h3>
@@ -191,9 +253,9 @@ function Admin() {
   );
 }
 
-// Estilos Reutilizados
+// Estilos Reutilizados (Manter os teus)
 const cardStyle = { backgroundColor: '#0a0a0a', borderRadius: '24px', padding: '40px', border: '1px solid #27272a' };
-const inputStyle = { width: '100%', padding: '15px 18px', background: '#18181b', color: 'white', border: '1px solid #27272a', borderRadius: '12px' };
+const inputStyle = { width: '100%', padding: '15px 18px', background: '#18181b', color: 'white', border: '1px solid #27272a', borderRadius: '12px', boxSizing: 'border-box' };
 const labelStyle = { display: 'block', fontSize: '0.95rem', color: '#a1a1aa', marginBottom: '8px' };
 const primaryButtonStyle = { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', background: '#3b82f6', color: 'white', border: 'none', padding: '16px', borderRadius: '12px', fontWeight: '700', cursor: 'pointer', width: '100%' };
 const searchButtonStyle = { padding: '15px 20px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '12px', cursor: 'pointer' };
