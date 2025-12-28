@@ -4,7 +4,6 @@ import { FiHome, FiSettings, FiLogOut, FiPlus, FiMapPin, FiLayers, FiTrash2 } fr
 
 function Admin() {
   const [parques, setParques] = useState([]);
-  const [lugares, setLugares] = useState([]); // Novo estado para listar lugares
   const [novoParque, setNovoParque] = useState({ nome: "", localizacao: "", latitude: 0, longitude: 0, isExterior: true });
   const [novoLugar, setNovoLugar] = useState({ numeroLugar: "", piso: 0, parqueId: "" });
   
@@ -15,7 +14,6 @@ function Admin() {
     const role = localStorage.getItem("userRole");
     if (role !== "Admin") { navigate('/dashboard'); return; }
     fetchParques();
-    fetchLugares(); // Carregar lugares ao iniciar
   }, [navigate]);
 
   const fetchParques = async () => {
@@ -26,17 +24,10 @@ function Admin() {
     } catch(e) { console.error(e); }
   };
 
-  const fetchLugares = async () => {
-    const token = localStorage.getItem("meuToken");
-    try {
-        const res = await fetch(`${API_URL}/Lugares`, { headers: { 'Authorization': `Bearer ${token}` } });
-        if (res.ok) setLugares(await res.json());
-    } catch(e) { console.error(e); }
-  };
-
   const buscarCoordenadas = async () => {
     if (!novoParque.localizacao) { alert("Indique a cidade."); return; }
     const apiKey = "1c61f7257faf7285ff220f8abdfae717"; 
+    
     try {
       const res = await fetch(`https://api.openweathermap.org/geo/1.0/direct?q=${novoParque.localizacao}&limit=1&appid=${apiKey}`);
       const dados = await res.json();
@@ -62,19 +53,30 @@ function Admin() {
 
   const handleRemoverParque = async (id) => {
     if (!window.confirm("Tem a certeza que deseja remover este parque? Todos os lugares associados serão apagados.")) return;
+    
     const token = localStorage.getItem("meuToken");
     try {
       const res = await fetch(`${API_URL}/Parques/${id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
-      if (res.ok) { alert("Parque removido."); fetchParques(); fetchLugares(); }
-    } catch (e) { console.error(e); }
+
+      if (res.ok) {
+        alert("Parque removido com sucesso!");
+        fetchParques();
+      } else {
+        alert("Erro ao remover parque. Verifique a consola.");
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Erro de conexão ao tentar remover.");
+    }
   };
 
   const handleCriarLugar = async (e) => {
     e.preventDefault();
     const token = localStorage.getItem("meuToken");
+    
     const resLugar = await fetch(`${API_URL}/Lugares`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
@@ -90,20 +92,7 @@ function Admin() {
         });
         setNovoLugar({ ...novoLugar, numeroLugar: "" });
         alert("Lugar adicionado.");
-        fetchLugares(); // Atualizar lista de lugares
     }
-  };
-
-  const handleRemoverLugar = async (id) => {
-    if (!window.confirm("Tem a certeza que deseja remover este lugar?")) return;
-    const token = localStorage.getItem("meuToken");
-    try {
-      const res = await fetch(`${API_URL}/Lugares/${id}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (res.ok) { alert("Lugar removido."); fetchLugares(); }
-    } catch (e) { console.error(e); }
   };
 
   const handleLogout = () => { localStorage.clear(); navigate("/"); };
@@ -116,10 +105,12 @@ function Admin() {
           <div style={{ width: '45px', height: '45px', background: '#fff', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'black', fontWeight: 'bold', fontSize: '1.4rem' }}>S</div>
           <span style={{ fontSize: '1.6rem', fontWeight: '800', letterSpacing: '-1px', color: 'white' }}>SmartParking</span>
         </div>
+
         <nav style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '15px', paddingRight: '10px' }}>
           <div style={menuItem} onClick={() => navigate('/dashboard')}><FiHome size={24} /> <span>Início</span></div>
           <div style={menuItemActive}><FiSettings size={24} /> <span>Administração</span></div>
         </nav>
+
         <div style={{ flexShrink: 0, marginTop: '30px', borderTop: '1px solid #27272a', paddingTop: '20px' }}>
             <button onClick={handleLogout} style={menuItemDanger}><FiLogOut size={22} /> <span>Terminar Sessão</span></button>
         </div>
@@ -158,50 +149,40 @@ function Admin() {
           </div>
         </div>
 
-        {/* LISTA DE PARQUES */}
-        <h3 style={{ fontSize: '1.5rem', fontWeight: '700', marginBottom: '25px' }}>Parques Existentes</h3>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '25px', marginBottom: '50px' }}>
-          {parques.map(parque => (
-            <div key={parque.id} style={itemCard}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
-                  <h4 style={{ fontSize: '1.2rem', fontWeight: '700', margin: 0 }}>{parque.nome}</h4>
-                  <p style={{ color: '#a1a1aa', margin: '5px 0' }}>📍 {parque.localizacao}</p>
+        {parques.length > 0 && (
+          <div>
+            <h3 style={{ fontSize: '1.5rem', fontWeight: '700', marginBottom: '25px' }}>Parques Existentes</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '25px' }}>
+              {parques.map(parque => (
+                <div key={parque.id} style={{ backgroundColor: '#0a0a0a', borderRadius: '20px', padding: '30px', border: '1px solid #27272a', position: 'relative' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <div>
+                      <h4 style={{ fontSize: '1.3rem', fontWeight: '700', margin: 0 }}>{parque.nome}</h4>
+                      <p style={{ color: '#a1a1aa', margin: '5px 0' }}>📍 {parque.localizacao}</p>
+                    </div>
+                    <button 
+                      onClick={() => handleRemoverParque(parque.id)}
+                      style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: 'none', borderRadius: '8px', padding: '10px', cursor: 'pointer' }}>
+                      <FiTrash2 size={20} />
+                    </button>
+                  </div>
                 </div>
-                <button onClick={() => handleRemoverParque(parque.id)} style={deleteBtn}><FiTrash2 size={18} /></button>
-              </div>
+              ))}
             </div>
-          ))}
-        </div>
-
-        {/* LISTA DE LUGARES */}
-        <h3 style={{ fontSize: '1.5rem', fontWeight: '700', marginBottom: '25px' }}>Lugares Existentes</h3>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '25px' }}>
-          {lugares.map(lugar => (
-            <div key={lugar.id} style={itemCard}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
-                  <h4 style={{ fontSize: '1.2rem', fontWeight: '700', margin: 0 }}>Lugar {lugar.numeroLugar}</h4>
-                  <p style={{ color: '#a1a1aa', margin: '5px 0' }}>Piso {lugar.piso} - {parques.find(p => p.id === lugar.parqueId)?.nome || "Parque ID: " + lugar.parqueId}</p>
-                </div>
-                <button onClick={() => handleRemoverLugar(lugar.id)} style={deleteBtn}><FiTrash2 size={18} /></button>
-              </div>
-            </div>
-          ))}
-        </div>
+          </div>
+        )}
       </main>
     </div>
   );
 }
 
-const itemCard = { backgroundColor: '#0a0a0a', borderRadius: '15px', padding: '20px', border: '1px solid #27272a' };
-const deleteBtn = { background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: 'none', borderRadius: '8px', padding: '10px', cursor: 'pointer', transition: '0.2s' };
-const menuItem = { display: 'flex', alignItems: 'center', gap: '15px', padding: '15px 20px', color: '#a1a1aa', borderRadius: '12px', cursor: 'pointer', fontSize: '1.1rem', fontWeight: '600', border: 'none', background: 'transparent', width: '100%', justifyContent: 'flex-start' };
+const menuItem = { display: 'flex', alignItems: 'center', gap: '15px', padding: '15px 20px', color: '#a1a1aa', borderRadius: '12px', cursor: 'pointer', transition: '0.2s', fontSize: '1.1rem', fontWeight: '600', border: 'none', background: 'transparent', width: '100%', justifyContent: 'flex-start' };
 const menuItemActive = { ...menuItem, background: '#18181b', color: 'white' };
 const menuItemDanger = { ...menuItem, marginTop: '10px', color: '#ef4444' };
 const cardStyle = { backgroundColor: '#0a0a0a', borderRadius: '24px', padding: '40px', border: '1px solid #27272a' };
 const inputStyle = { width: '100%', padding: '15px 18px', background: '#18181b', color: 'white', border: '1px solid #27272a', borderRadius: '12px', fontSize: '1rem' };
 const primaryButtonStyle = { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', background: '#3b82f6', color: 'white', border: 'none', padding: '16px 24px', fontWeight: '700', cursor: 'pointer', borderRadius: '12px', width: '100%' };
 const searchButtonStyle = { padding: '15px 20px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '12px', cursor: 'pointer' };
+const labelStyle = { display: 'block', fontSize: '0.95rem', color: '#a1a1aa', marginBottom: '8px', fontWeight: '500' };
 
 export default Admin;
